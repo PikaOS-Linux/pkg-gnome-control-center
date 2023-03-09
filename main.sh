@@ -8,7 +8,7 @@ add-apt-repository ppa:kubuntu-ppa/backports
 # Clone Upstream
 git clone https://gitlab.gnome.org/GNOME/gnome-control-center -b 43.0
 cp -rvf ./debian ./gnome-control-center
-cd ./corectrl
+cd ./gnome-control-center
 
 # Get build deps
 ln -fs /usr/share/zoneinfo/America/New_York /etc/localtime
