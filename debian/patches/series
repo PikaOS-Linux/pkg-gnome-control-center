@@ -31,6 +31,6 @@ build-Look-for-snapd-glib-2.patch
 ### PikaOS Changes
 
 #pika/Allow-tweaking-some-settings-for-Ubuntu-Dock.patch
-pika/Modify-Mulitasking-assets-for-accent-colors.patch
-pika/background-Allow-configuring-the-ubuntu-accent-color.patch
+#pika/Modify-Mulitasking-assets-for-accent-colors.patch
+#pika/background-Allow-configuring-the-ubuntu-accent-color.patch
 pika/vrr.patch
