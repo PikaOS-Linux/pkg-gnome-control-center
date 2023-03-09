@@ -16,7 +16,7 @@ DEBIAN_FRONTEND=noninteractive apt-get install -y tzdata
 apt-get build-dep ./ -y
 
 # Build package
-LOGNAME=root dh_make --createorig -y -l -p gnome-control-center _43.0
+LOGNAME=root dh_make --createorig -y -l -p gnome-control-center_43.0
 dpkg-buildpackage
 
 # Move the debs to output
