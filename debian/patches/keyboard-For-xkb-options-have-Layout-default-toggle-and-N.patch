@@ -13,21 +13,25 @@ available by default.
 XKB options are a mess, but this seems like a more accurate
 representation of how they function.
 
+Changes compared to the original patch made 2022-12-25:
+* Add nodefault_option after the main option, not before (LP: #2000423)
+
 Origin: https://gitlab.gnome.org/GNOME/gnome-control-center/-/merge_requests/910
 Bug-Ubuntu: https://launchpad.net/bugs/1867548
 Bug-GNOME: https://gitlab.gnome.org/GNOME/gnome-control-center/issues/918
+Last-Update: 2022-12-25
 ---
  panels/keyboard/cc-keyboard-panel.c       |  5 +-
- panels/keyboard/cc-xkb-modifier-dialog.c  | 77 ++++++++++++++++++-------------
+ panels/keyboard/cc-xkb-modifier-dialog.c  | 78 +++++++++++++++++--------------
  panels/keyboard/cc-xkb-modifier-dialog.h  |  1 +
  panels/keyboard/cc-xkb-modifier-dialog.ui |  5 +-
- 4 files changed, 52 insertions(+), 36 deletions(-)
+ 4 files changed, 52 insertions(+), 37 deletions(-)
 
 diff --git a/panels/keyboard/cc-keyboard-panel.c b/panels/keyboard/cc-keyboard-panel.c
-index 9679b0d..b1d7219 100644
+index 25b70a2..058c27b 100644
 --- a/panels/keyboard/cc-keyboard-panel.c
 +++ b/panels/keyboard/cc-keyboard-panel.c
-@@ -64,6 +64,7 @@ static const CcXkbModifier LV3_MODIFIER = {
+@@ -63,6 +63,7 @@ static const CcXkbModifier LV3_MODIFIER = {
    N_("Alternate Characters Key"),
    N_("The alternate characters key can be used to enter additional characters. These are sometimes printed as a third-option on your keyboard."),
    (CcXkbOption[]){
@@ -35,7 +39,7 @@ index 9679b0d..b1d7219 100644
      { NC_("keyboard key", "Left Alt"),    "lv3:lalt_switch" },
      { NC_("keyboard key", "Right Alt"),   "lv3:ralt_switch" },
      { NC_("keyboard key", "Left Super"),  "lv3:lwin_switch" },
-@@ -72,7 +73,8 @@ static const CcXkbModifier LV3_MODIFIER = {
+@@ -71,7 +72,8 @@ static const CcXkbModifier LV3_MODIFIER = {
      { NC_("keyboard key", "Right Ctrl"),  "lv3:switch" },
      { NULL,                               NULL }
    },
@@ -45,7 +49,7 @@ index 9679b0d..b1d7219 100644
  };
  
  static const CcXkbModifier COMPOSE_MODIFIER = {
-@@ -94,6 +96,7 @@ static const CcXkbModifier COMPOSE_MODIFIER = {
+@@ -93,6 +95,7 @@ static const CcXkbModifier COMPOSE_MODIFIER = {
      { NULL,                                NULL }
    },
    NULL,
@@ -54,7 +58,7 @@ index 9679b0d..b1d7219 100644
  
  static void
 diff --git a/panels/keyboard/cc-xkb-modifier-dialog.c b/panels/keyboard/cc-xkb-modifier-dialog.c
-index da8116e..d5b865d 100644
+index da8116e..e52eeb4 100644
 --- a/panels/keyboard/cc-xkb-modifier-dialog.c
 +++ b/panels/keyboard/cc-xkb-modifier-dialog.c
 @@ -28,7 +28,7 @@ struct _CcXkbModifierDialog
@@ -139,23 +143,23 @@ index da8116e..d5b865d 100644
  
    /* Either replace the existing "<modifier>:" option in the string
     * array, or add the option at the end
-@@ -137,6 +145,8 @@ set_xkb_option (CcXkbModifierDialog *self,
-     {
-       if (g_str_has_prefix (options[i], self->modifier->prefix))
+@@ -139,6 +147,8 @@ set_xkb_option (CcXkbModifierDialog *self,
          {
-+          if (!found && add_nodefault)
-+            g_ptr_array_add (array, self->modifier->nodefault_option);
            if (!found && xkb_option != NULL)
              g_ptr_array_add (array, xkb_option);
++          if (!found && add_nodefault)
++            g_ptr_array_add (array, self->modifier->nodefault_option);
            found = TRUE;
-@@ -147,6 +157,8 @@ set_xkb_option (CcXkbModifierDialog *self,
          }
-     }
+       else
+@@ -149,6 +159,8 @@ set_xkb_option (CcXkbModifierDialog *self,
  
-+  if (!found && add_nodefault)
-+    g_ptr_array_add (array, self->modifier->nodefault_option);
    if (!found && xkb_option != NULL)
      g_ptr_array_add (array, xkb_option);
++  if (!found && add_nodefault)
++    g_ptr_array_add (array, self->modifier->nodefault_option);
+ 
+   g_ptr_array_add (array, NULL);
  
 @@ -166,7 +178,7 @@ on_active_radio_changed_cb (CcXkbModifierDialog *self,
    if (!gtk_check_button_get_active (GTK_CHECK_BUTTON (radio)))
@@ -213,9 +217,11 @@ index da8116e..d5b865d 100644
      {
        row = g_object_new (GTK_TYPE_LIST_BOX_ROW,
                            "visible", TRUE,
-@@ -312,10 +324,9 @@ cc_xkb_modifier_dialog_new (GSettings *input_settings,
+@@ -310,12 +322,10 @@ cc_xkb_modifier_dialog_new (GSettings *input_settings,
+ 
+   self->modifier = modifier;
    gtk_window_set_title (GTK_WINDOW (self), gettext (modifier->title));
-   adw_preferences_row_set_title (ADW_PREFERENCES_ROW (self->switch_row), gettext (modifier->title));
+-  adw_preferences_row_set_title (ADW_PREFERENCES_ROW (self->switch_row), gettext (modifier->title));
    gtk_label_set_markup (self->description_label, gettext (modifier->description));
 -  gtk_widget_set_visible (GTK_WIDGET (self->switch_listbox), modifier->default_option == NULL);
    add_radio_buttons (self);
@@ -225,7 +231,7 @@ index da8116e..d5b865d 100644
  
    return self;
  }
-@@ -329,6 +340,7 @@ xcb_modifier_transform_binding_to_label (GValue   *value,
+@@ -329,6 +339,7 @@ xcb_modifier_transform_binding_to_label (GValue   *value,
    const CcXkbOption *entry = NULL;
    const char **items;
    guint i;
@@ -233,7 +239,7 @@ index da8116e..d5b865d 100644
  
    items = g_variant_get_strv (variant, NULL);
  
-@@ -337,19 +349,18 @@ xcb_modifier_transform_binding_to_label (GValue   *value,
+@@ -337,19 +348,18 @@ xcb_modifier_transform_binding_to_label (GValue   *value,
        entry = get_xkb_option_from_name (modifier, items[i]);
        if (entry != NULL)
          break;

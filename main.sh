@@ -6,7 +6,7 @@ add-apt-repository https://ppa.pika-os.com
 add-apt-repository ppa:pikaos/pika
 add-apt-repository ppa:kubuntu-ppa/backports
 # Clone Upstream
-git clone https://gitlab.gnome.org/GNOME/gnome-control-center -b 43.0
+git clone https://gitlab.gnome.org/GNOME/gnome-control-center -b 44.0
 cp -rvf ./debian ./gnome-control-center
 cd ./gnome-control-center
 
@@ -16,7 +16,7 @@ DEBIAN_FRONTEND=noninteractive apt-get install -y tzdata
 apt-get build-dep ./ -y
 
 # Build package
-LOGNAME=root dh_make --createorig -y -l -p gnome-control-center_43.0
+LOGNAME=root dh_make --createorig -y -l -p gnome-control-center_44.0
 dpkg-buildpackage
 
 # Move the debs to output

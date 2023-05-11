@@ -1,4 +1,4 @@
-From 5f5542fffb56a1a675fea4a1c93722e02e3ca98d Mon Sep 17 00:00:00 2001
+From f95dd8e141b32828fd9d2debe792e7e9bf5f1de9 Mon Sep 17 00:00:00 2001
 From: Dor Askayo <dor.askayo@gmail.com>
 Date: Sat, 28 Mar 2020 19:29:59 +0300
 Subject: [PATCH] display: Add a switch for variable refresh rate
@@ -7,17 +7,17 @@ This allows disabling and enabling variable refresh rate on monitors
 that support it.
 ---
  panels/display/cc-display-config-dbus.c | 60 ++++++++++++++++++++++++-
- panels/display/cc-display-config.c      | 19 ++++++++
+ panels/display/cc-display-config.c      | 20 +++++++++
  panels/display/cc-display-config.h      |  9 ++++
  panels/display/cc-display-settings.c    | 29 ++++++++++++
  panels/display/cc-display-settings.ui   | 14 ++++++
- 5 files changed, 130 insertions(+), 1 deletion(-)
+ 5 files changed, 131 insertions(+), 1 deletion(-)
 
-Index: gnome-control-center-43.0/panels/display/cc-display-config-dbus.c
-===================================================================
---- gnome-control-center-43.0.orig/panels/display/cc-display-config-dbus.c
-+++ gnome-control-center-43.0/panels/display/cc-display-config-dbus.c
-@@ -317,7 +317,6 @@ cc_display_logical_monitor_class_init (C
+diff --git a/panels/display/cc-display-config-dbus.c b/panels/display/cc-display-config-dbus.c
+index 83a49ade9f..91ca02da04 100644
+--- a/panels/display/cc-display-config-dbus.c
++++ b/panels/display/cc-display-config-dbus.c
+@@ -280,7 +280,6 @@ cc_display_logical_monitor_class_init (CcDisplayLogicalMonitorClass *klass)
    gobject_class->finalize = cc_display_logical_monitor_finalize;
  }
  
@@ -25,7 +25,7 @@ Index: gnome-control-center-43.0/panels/display/cc-display-config-dbus.c
  typedef enum _CcDisplayMonitorUnderscanning
  {
    UNDERSCANNING_UNSUPPORTED = 0,
-@@ -325,6 +324,13 @@ typedef enum _CcDisplayMonitorUnderscann
+@@ -288,6 +287,13 @@ typedef enum _CcDisplayMonitorUnderscanning
    UNDERSCANNING_ENABLED
  } CcDisplayMonitorUnderscanning;
  
@@ -39,15 +39,15 @@ Index: gnome-control-center-43.0/panels/display/cc-display-config-dbus.c
  struct _CcDisplayMonitorDBus
  {
    CcDisplayMonitor parent_instance;
-@@ -340,6 +346,7 @@ struct _CcDisplayMonitorDBus
+@@ -303,6 +309,7 @@ struct _CcDisplayMonitorDBus
    int height_mm;
    gboolean builtin;
    CcDisplayMonitorUnderscanning underscanning;
 +  CcDisplayMonitorVariableRefreshRate vrr_mode;
-   CcDisplayMonitorPrivacy privacy_screen;
    int max_width;
    int max_height;
-@@ -649,6 +656,37 @@ cc_display_monitor_dbus_set_underscannin
+ 
+@@ -603,6 +610,37 @@ cc_display_monitor_dbus_set_underscanning (CcDisplayMonitor *pself,
      self->underscanning = UNDERSCANNING_DISABLED;
  }
  
@@ -85,7 +85,7 @@ Index: gnome-control-center-43.0/panels/display/cc-display-config-dbus.c
  static CcDisplayMode *
  cc_display_monitor_dbus_get_closest_mode (CcDisplayMonitorDBus *self,
                                            CcDisplayModeDBus *mode)
-@@ -799,6 +837,7 @@ static void
+@@ -715,6 +753,7 @@ static void
  cc_display_monitor_dbus_init (CcDisplayMonitorDBus *self)
  {
    self->underscanning = UNDERSCANNING_UNSUPPORTED;
@@ -93,17 +93,17 @@ Index: gnome-control-center-43.0/panels/display/cc-display-config-dbus.c
    self->max_width = G_MAXINT;
    self->max_height = G_MAXINT;
  }
-@@ -852,6 +891,9 @@ cc_display_monitor_dbus_class_init (CcDi
+@@ -768,6 +807,9 @@ cc_display_monitor_dbus_class_init (CcDisplayMonitorDBusClass *klass)
    parent_class->supports_underscanning = cc_display_monitor_dbus_supports_underscanning;
    parent_class->get_underscanning = cc_display_monitor_dbus_get_underscanning;
    parent_class->set_underscanning = cc_display_monitor_dbus_set_underscanning;
 +  parent_class->supports_variable_refresh_rate = cc_display_monitor_dbus_supports_variable_refresh_rate;
 +  parent_class->get_variable_refresh_rate = cc_display_monitor_dbus_get_variable_refresh_rate;
 +  parent_class->set_variable_refresh_rate = cc_display_monitor_dbus_set_variable_refresh_rate;
-   parent_class->get_privacy = cc_display_monitor_dbus_get_privacy;
    parent_class->set_mode = cc_display_monitor_dbus_set_mode;
-   parent_class->set_compatible_clone_mode = cc_display_monitor_dbus_set_compatible_clone_mode;
-@@ -930,6 +972,15 @@ cc_display_monitor_dbus_new (GVariant *v
+   parent_class->set_position = cc_display_monitor_dbus_set_position;
+   parent_class->get_scale = cc_display_monitor_dbus_get_scale;
+@@ -844,6 +886,15 @@ cc_display_monitor_dbus_new (GVariant *variant,
            else
              self->underscanning = UNDERSCANNING_DISABLED;
          }
@@ -119,7 +119,7 @@ Index: gnome-control-center-43.0/panels/display/cc-display-config-dbus.c
        else if (g_str_equal (s, "max-screen-size"))
          {
            g_variant_get (v, "ii", &self->max_width, &self->max_height);
-@@ -1045,6 +1096,10 @@ build_monitors_variant (GHashTable *moni
+@@ -944,6 +995,10 @@ build_monitors_variant (GHashTable *monitors)
                               "underscanning",
                               g_variant_new_boolean (monitor->underscanning == UNDERSCANNING_ENABLED));
  
@@ -130,7 +130,7 @@ Index: gnome-control-center-43.0/panels/display/cc-display-config-dbus.c
        mode_dbus = CC_DISPLAY_MODE_DBUS (monitor->current_mode);
        g_variant_builder_add (&builder, "(ss@*)",
                               monitor->connector_name,
-@@ -1182,6 +1237,9 @@ cc_display_config_dbus_equal (CcDisplayC
+@@ -1078,6 +1133,9 @@ cc_display_config_dbus_equal (CcDisplayConfig *pself,
        if (m1->underscanning != m2->underscanning)
          return FALSE;
  
@@ -140,11 +140,11 @@ Index: gnome-control-center-43.0/panels/display/cc-display-config-dbus.c
        if (!cc_display_logical_monitor_equal (m1->logical_monitor, m2->logical_monitor))
          return FALSE;
  
-Index: gnome-control-center-43.0/panels/display/cc-display-config.c
-===================================================================
---- gnome-control-center-43.0.orig/panels/display/cc-display-config.c
-+++ gnome-control-center-43.0/panels/display/cc-display-config.c
-@@ -339,6 +339,25 @@ cc_display_monitor_set_underscanning (Cc
+diff --git a/panels/display/cc-display-config.c b/panels/display/cc-display-config.c
+index a78b33fc9b..c66128265e 100644
+--- a/panels/display/cc-display-config.c
++++ b/panels/display/cc-display-config.c
+@@ -322,6 +322,26 @@ cc_display_monitor_set_underscanning (CcDisplayMonitor *self,
    return CC_DISPLAY_MONITOR_GET_CLASS (self)->set_underscanning (self, underscanning);
  }
  
@@ -167,14 +167,15 @@ Index: gnome-control-center-43.0/panels/display/cc-display-config.c
 +  return CC_DISPLAY_MONITOR_GET_CLASS (self)->set_variable_refresh_rate (self, allowed);
 +}
 +
- CcDisplayMonitorPrivacy
- cc_display_monitor_get_privacy (CcDisplayMonitor *self)
++
+ void
+ cc_display_monitor_set_mode (CcDisplayMonitor *self, CcDisplayMode *m)
  {
-Index: gnome-control-center-43.0/panels/display/cc-display-config.h
-===================================================================
---- gnome-control-center-43.0.orig/panels/display/cc-display-config.h
-+++ gnome-control-center-43.0/panels/display/cc-display-config.h
-@@ -131,6 +131,10 @@ struct _CcDisplayMonitorClass
+diff --git a/panels/display/cc-display-config.h b/panels/display/cc-display-config.h
+index d83fa8edca..065435ca70 100644
+--- a/panels/display/cc-display-config.h
++++ b/panels/display/cc-display-config.h
+@@ -121,6 +121,10 @@ struct _CcDisplayMonitorClass
    gboolean          (*get_underscanning)      (CcDisplayMonitor  *self);
    void              (*set_underscanning)      (CcDisplayMonitor  *self,
                                                 gboolean           u);
@@ -182,10 +183,10 @@ Index: gnome-control-center-43.0/panels/display/cc-display-config.h
 +  gboolean          (*get_variable_refresh_rate)      (CcDisplayMonitor *self);
 +  void              (*set_variable_refresh_rate)      (CcDisplayMonitor *self,
 +                                                       gboolean          u);
-   CcDisplayMonitorPrivacy (*get_privacy)      (CcDisplayMonitor  *self);
    CcDisplayMode*    (*get_mode)               (CcDisplayMonitor  *self);
    CcDisplayMode*    (*get_preferred_mode)     (CcDisplayMonitor  *self);
-@@ -242,6 +246,11 @@ gboolean          cc_display_monitor_get
+   GList*            (*get_modes)              (CcDisplayMonitor  *self);
+@@ -214,6 +218,11 @@ gboolean          cc_display_monitor_get_underscanning      (CcDisplayMonitor  *
  void              cc_display_monitor_set_underscanning      (CcDisplayMonitor  *monitor,
                                                               gboolean           underscanning);
  
@@ -194,15 +195,15 @@ Index: gnome-control-center-43.0/panels/display/cc-display-config.h
 +void              cc_display_monitor_set_variable_refresh_rate      (CcDisplayMonitor *monitor,
 +                                                                     gboolean          allowed);
 +
- CcDisplayMonitorPrivacy cc_display_monitor_get_privacy      (CcDisplayMonitor *self);
- 
  CcDisplayMode*    cc_display_monitor_get_mode               (CcDisplayMonitor  *monitor);
-Index: gnome-control-center-43.0/panels/display/cc-display-settings.c
-===================================================================
---- gnome-control-center-43.0.orig/panels/display/cc-display-settings.c
-+++ gnome-control-center-43.0/panels/display/cc-display-settings.c
-@@ -59,6 +59,8 @@ struct _CcDisplaySettings
-   GtkWidget        *scale_fractional_row;
+ void              cc_display_monitor_get_geometry           (CcDisplayMonitor  *monitor,
+                                                              int               *x,
+diff --git a/panels/display/cc-display-settings.c b/panels/display/cc-display-settings.c
+index 54301b30a8..e3a562fe1e 100644
+--- a/panels/display/cc-display-settings.c
++++ b/panels/display/cc-display-settings.c
+@@ -57,6 +57,8 @@ struct _CcDisplaySettings
+   GtkWidget        *scale_combo_row;
    GtkWidget        *underscanning_row;
    GtkWidget        *underscanning_switch;
 +  GtkWidget        *variable_refresh_rate_row;
@@ -210,15 +211,15 @@ Index: gnome-control-center-43.0/panels/display/cc-display-settings.c
  };
  
  typedef struct _CcDisplaySettings CcDisplaySettings;
-@@ -257,6 +259,7 @@ cc_display_settings_rebuild_ui (CcDispla
+@@ -254,6 +256,7 @@ cc_display_settings_rebuild_ui (CcDisplaySettings *self)
+       gtk_widget_set_visible (self->scale_combo_row, FALSE);
        gtk_widget_set_visible (self->scale_buttons_row, FALSE);
-       gtk_widget_set_visible (self->scale_fractional_row, FALSE);
        gtk_widget_set_visible (self->underscanning_row, FALSE);
 +      gtk_widget_set_visible (self->variable_refresh_rate_row, FALSE);
  
        return G_SOURCE_REMOVE;
      }
-@@ -267,6 +270,7 @@ cc_display_settings_rebuild_ui (CcDispla
+@@ -264,6 +267,7 @@ cc_display_settings_rebuild_ui (CcDisplaySettings *self)
    g_object_freeze_notify ((GObject*) self->resolution_row);
    g_object_freeze_notify ((GObject*) self->scale_combo_row);
    g_object_freeze_notify ((GObject*) self->underscanning_switch);
@@ -226,7 +227,7 @@ Index: gnome-control-center-43.0/panels/display/cc-display-settings.c
  
    cc_display_monitor_get_geometry (self->selected_output, NULL, NULL, &width, &height);
  
-@@ -475,6 +479,12 @@ cc_display_settings_rebuild_ui (CcDispla
+@@ -463,6 +467,12 @@ cc_display_settings_rebuild_ui (CcDisplaySettings *self)
    gtk_switch_set_active (GTK_SWITCH (self->underscanning_switch),
                           cc_display_monitor_get_underscanning (self->selected_output));
  
@@ -239,7 +240,7 @@ Index: gnome-control-center-43.0/panels/display/cc-display-settings.c
    self->updating = TRUE;
    g_object_thaw_notify ((GObject*) self->enabled_switch);
    g_object_thaw_notify ((GObject*) self->orientation_row);
-@@ -482,6 +492,7 @@ cc_display_settings_rebuild_ui (CcDispla
+@@ -470,6 +480,7 @@ cc_display_settings_rebuild_ui (CcDisplaySettings *self)
    g_object_thaw_notify ((GObject*) self->resolution_row);
    g_object_thaw_notify ((GObject*) self->scale_combo_row);
    g_object_thaw_notify ((GObject*) self->underscanning_switch);
@@ -247,10 +248,11 @@ Index: gnome-control-center-43.0/panels/display/cc-display-settings.c
    self->updating = FALSE;
  
    return G_SOURCE_REMOVE;
-@@ -643,6 +654,21 @@ on_underscanning_switch_active_changed_c
+@@ -630,6 +641,21 @@ on_underscanning_switch_active_changed_cb (GtkWidget         *widget,
+   g_signal_emit_by_name (G_OBJECT (self), "updated", self->selected_output);
  }
  
- static void
++static void
 +on_variable_refresh_rate_switch_active_changed_cb (GtkWidget         *widget,
 +                                                   GParamSpec        *pspec,
 +                                                   CcDisplaySettings *self)
@@ -265,12 +267,11 @@ Index: gnome-control-center-43.0/panels/display/cc-display-settings.c
 +}
 +
 +
-+static void
+ static void
  cc_display_settings_get_property (GObject    *object,
                                    guint       prop_id,
-                                   GValue     *value,
-@@ -767,6 +793,8 @@ cc_display_settings_class_init (CcDispla
-   gtk_widget_class_bind_template_child (widget_class, CcDisplaySettings, scale_fractional_row);
+@@ -754,6 +780,8 @@ cc_display_settings_class_init (CcDisplaySettingsClass *klass)
+   gtk_widget_class_bind_template_child (widget_class, CcDisplaySettings, scale_combo_row);
    gtk_widget_class_bind_template_child (widget_class, CcDisplaySettings, underscanning_row);
    gtk_widget_class_bind_template_child (widget_class, CcDisplaySettings, underscanning_switch);
 +  gtk_widget_class_bind_template_child (widget_class, CcDisplaySettings, variable_refresh_rate_row);
@@ -278,7 +279,7 @@ Index: gnome-control-center-43.0/panels/display/cc-display-settings.c
  
    gtk_widget_class_bind_template_callback (widget_class, on_enabled_switch_active_changed_cb);
    gtk_widget_class_bind_template_callback (widget_class, on_orientation_selection_changed_cb);
-@@ -774,6 +802,7 @@ cc_display_settings_class_init (CcDispla
+@@ -761,6 +789,7 @@ cc_display_settings_class_init (CcDisplaySettingsClass *klass)
    gtk_widget_class_bind_template_callback (widget_class, on_resolution_selection_changed_cb);
    gtk_widget_class_bind_template_callback (widget_class, on_scale_selection_changed_cb);
    gtk_widget_class_bind_template_callback (widget_class, on_underscanning_switch_active_changed_cb);
@@ -286,14 +287,15 @@ Index: gnome-control-center-43.0/panels/display/cc-display-settings.c
  }
  
  static void
-Index: gnome-control-center-43.0/panels/display/cc-display-settings.ui
-===================================================================
---- gnome-control-center-43.0.orig/panels/display/cc-display-settings.ui
-+++ gnome-control-center-43.0/panels/display/cc-display-settings.ui
-@@ -59,6 +59,20 @@
+diff --git a/panels/display/cc-display-settings.ui b/panels/display/cc-display-settings.ui
+index 5c18d62293..956feb20d1 100644
+--- a/panels/display/cc-display-settings.ui
++++ b/panels/display/cc-display-settings.ui
+@@ -58,6 +58,20 @@
+             <signal name="notify::selected-item" handler="on_refresh_rate_selection_changed_cb" swapped="no"/>
            </object>
          </child>
-         <child>
++        <child>
 +          <object class="AdwActionRow" id="variable_refresh_rate_row">
 +            <property name="width_request">100</property>
 +            <property name="title" translatable="yes">Variable Refresh Rate</property>
@@ -307,7 +309,9 @@ Index: gnome-control-center-43.0/panels/display/cc-display-settings.ui
 +            </child>
 +          </object>
 +        </child>
-+        <child>
+         <child>
            <object class="AdwActionRow" id="underscanning_row">
              <property name="width_request">100</property>
-             <property name="title" translatable="yes">Adjust for TV</property>
+-- 
+GitLab
+

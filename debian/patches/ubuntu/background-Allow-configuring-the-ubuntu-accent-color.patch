@@ -11,20 +11,20 @@ given that these are per-process anyways.
 ---
  panels/background/cc-background-panel.c  |  12 +
  panels/background/cc-background-panel.ui |   4 +
- panels/ubuntu/cc-ubuntu-colors-row.c     | 538 +++++++++++++++++++++++++++++++
+ panels/ubuntu/cc-ubuntu-colors-row.c     | 526 +++++++++++++++++++++++++++++++
  panels/ubuntu/cc-ubuntu-colors-row.css   |  24 ++
  panels/ubuntu/cc-ubuntu-colors-row.h     |  34 ++
  panels/ubuntu/cc-ubuntu-colors-row.ui    | 289 +++++++++++++++++
  panels/ubuntu/meson.build                |   3 +
  po/POTFILES.in                           |   2 +
- 8 files changed, 906 insertions(+)
+ 8 files changed, 894 insertions(+)
  create mode 100644 panels/ubuntu/cc-ubuntu-colors-row.c
  create mode 100644 panels/ubuntu/cc-ubuntu-colors-row.css
  create mode 100644 panels/ubuntu/cc-ubuntu-colors-row.h
  create mode 100644 panels/ubuntu/cc-ubuntu-colors-row.ui
 
 diff --git a/panels/background/cc-background-panel.c b/panels/background/cc-background-panel.c
-index f748e9a..db2dbd6 100644
+index 12f1e64..0c2ac02 100644
 --- a/panels/background/cc-background-panel.c
 +++ b/panels/background/cc-background-panel.c
 @@ -35,6 +35,8 @@
@@ -36,7 +36,7 @@ index f748e9a..db2dbd6 100644
  #define WP_PATH_ID "org.gnome.desktop.background"
  #define WP_LOCK_PATH_ID "org.gnome.desktop.screensaver"
  #define WP_URI_KEY "picture-uri"
-@@ -67,6 +69,8 @@ struct _CcBackgroundPanel
+@@ -66,6 +68,8 @@ struct _CcBackgroundPanel
    CcBackgroundPreview *dark_preview;
    GtkToggleButton *default_toggle;
    GtkToggleButton *dark_toggle;
@@ -45,7 +45,7 @@ index f748e9a..db2dbd6 100644
  };
  
  CC_PANEL_REGISTER (CcBackgroundPanel, cc_background_panel)
-@@ -103,6 +107,8 @@ reload_color_scheme_toggles (CcBackgroundPanel *self)
+@@ -102,6 +106,8 @@ reload_color_scheme_toggles (CcBackgroundPanel *self)
        gtk_toggle_button_set_active (self->default_toggle, FALSE);
        gtk_toggle_button_set_active (self->dark_toggle, FALSE);
      }
@@ -54,7 +54,7 @@ index f748e9a..db2dbd6 100644
  }
  
  static void
-@@ -380,6 +386,7 @@ cc_background_panel_class_init (CcBackgroundPanelClass *klass)
+@@ -378,6 +384,7 @@ cc_background_panel_class_init (CcBackgroundPanelClass *klass)
  
    g_type_ensure (CC_TYPE_BACKGROUND_CHOOSER);
    g_type_ensure (CC_TYPE_BACKGROUND_PREVIEW);
@@ -62,7 +62,7 @@ index f748e9a..db2dbd6 100644
  
    panel_class->get_help_uri = cc_background_panel_get_help_uri;
  
-@@ -393,6 +400,7 @@ cc_background_panel_class_init (CcBackgroundPanelClass *klass)
+@@ -391,6 +398,7 @@ cc_background_panel_class_init (CcBackgroundPanelClass *klass)
    gtk_widget_class_bind_template_child (widget_class, CcBackgroundPanel, dark_preview);
    gtk_widget_class_bind_template_child (widget_class, CcBackgroundPanel, default_toggle);
    gtk_widget_class_bind_template_child (widget_class, CcBackgroundPanel, dark_toggle);
@@ -70,7 +70,7 @@ index f748e9a..db2dbd6 100644
  
    gtk_widget_class_bind_template_callback (widget_class, on_color_scheme_toggle_active_cb);
    gtk_widget_class_bind_template_callback (widget_class, on_chooser_background_chosen_cb);
-@@ -451,5 +459,9 @@ cc_background_panel_init (CcBackgroundPanel *panel)
+@@ -447,5 +455,9 @@ cc_background_panel_init (CcBackgroundPanel *panel)
                              got_transition_proxy_cb,
                              panel);
  
@@ -97,10 +97,10 @@ index 33a8638..89a5ef5 100644
  
 diff --git a/panels/ubuntu/cc-ubuntu-colors-row.c b/panels/ubuntu/cc-ubuntu-colors-row.c
 new file mode 100644
-index 0000000..2d64912
+index 0000000..5e0dcfd
 --- /dev/null
 +++ b/panels/ubuntu/cc-ubuntu-colors-row.c
-@@ -0,0 +1,538 @@
+@@ -0,0 +1,526 @@
 +/* -*- mode: C; c-file-style: "gnu"; indent-tabs-mode: nil; -*- */
 +/*
 + * Copyright (C) 2022 Canonical Ltd
@@ -131,27 +131,11 @@ index 0000000..2d64912
 +
 +#include "gdesktop-enums.h"
 +
-+#define MIN_ICONSIZE 16.0
-+#define MAX_ICONSIZE 64.0
-+#define DEFAULT_ICONSIZE 48.0
-+#define ICONSIZE_KEY "dash-max-icon-size"
-+
-+#define UBUNTU_DOCK_SCHEMA "org.gnome.shell.extensions.dash-to-dock"
-+#define UBUNTU_DOCK_ALL_MONITORS_KEY "multi-monitor"
-+#define UBUNTU_DOCK_PREFERRED_MONITOR_KEY "preferred-monitor"
-+#define UBUNTU_DOCK_PREFERRED_CONNECTOR_KEY "preferred-monitor-by-connector"
-+
-+/*
-+ * This allows to migrate settings from 'preferred-monitor' to
-+ * 'preferred-monitor-by-connector', and can be removed after 22.04
-+ * simplifying all the logic, by relying on connector names only.
-+ */
-+#define UBUNTU_DOCK_MONITOR_INDEX_USE_CONNECTOR -2
-+
 +#define INTERFACE_SCHEMA "org.gnome.desktop.interface"
 +#define GTK_THEME_KEY "gtk-theme"
 +#define CURSOR_THEME_KEY "cursor-theme"
 +#define ICON_THEME_KEY "icon-theme"
++#define COLOR_SCHEME_KEY "color-scheme"
 +
 +#define GEDIT_PREFRENCES_SCHEMA "org.gnome.gedit.preferences.editor"
 +#define GEDIT_THEME_KEY "scheme"
@@ -240,6 +224,8 @@ index 0000000..2d64912
 +      g_string_append (gedit_theme, "-dark");
 +    }
 +
++  g_settings_delay (self->interface_settings);
++
 +  current_gtk_theme = g_settings_get_string (self->interface_settings, GTK_THEME_KEY);
 +
 +  if (g_strcmp0 (current_gtk_theme, gtk_theme->str))
@@ -259,6 +245,7 @@ index 0000000..2d64912
 +      g_autoptr(GVariant) gedit_user_value = NULL;
 +      const char *gedit_theme_name = NULL;
 +
++      g_settings_delay (self->gedit_settings);
 +      gedit_user_value = g_settings_get_user_value (self->gedit_settings,
 +                                                    GEDIT_THEME_KEY);
 +
@@ -272,7 +259,11 @@ index 0000000..2d64912
 +          g_settings_set_string (self->gedit_settings, GEDIT_THEME_KEY,
 +                                 gedit_theme->str);
 +        }
++
++        g_settings_apply (self->gedit_settings);
 +    }
++
++  g_settings_apply (self->interface_settings);
 +}
 +
 +static void
@@ -312,11 +303,6 @@ index 0000000..2d64912
 +          accent_color = parts[1];
 +        break;
 +    }
-+
-+  if (!is_dark && self->color_scheme == G_DESKTOP_COLOR_SCHEME_PREFER_DARK)
-+    is_dark = TRUE;
-+  else if (is_dark && self->color_scheme != G_DESKTOP_COLOR_SCHEME_PREFER_DARK)
-+    is_dark = FALSE;
 +
 +  for (color_item = gtk_widget_get_first_child (GTK_WIDGET (self->color_box));
 +       color_item != NULL;
@@ -471,7 +457,6 @@ index 0000000..2d64912
 +check_theme_accents_availability (CcUbuntuColorsRow *self)
 +{
 +  GtkWidget *accent_color;
-+  g_autoptr (GList) colors = NULL;
 +  gint available_accents = 0;
 +
 +  if (!check_theme_exists ("Yaru", NULL))
@@ -496,11 +481,11 @@ index 0000000..2d64912
 +      if (check_theme_exists (theme_name, NULL) && check_theme_exists (theme_name, "dark"))
 +        available_accents++;
 +      else
-+        gtk_widget_hide (GTK_WIDGET (item));
++        gtk_widget_set_visible (GTK_WIDGET (item), FALSE);
 +    }
 +
 +  if (!available_accents)
-+    gtk_widget_hide (GTK_WIDGET (self));
++    gtk_widget_set_visible (GTK_WIDGET (self), FALSE);
 +}
 +
 +static void
@@ -532,7 +517,7 @@ index 0000000..2d64912
 +  if (desktops == NULL ||
 +      !g_strv_contains ((const gchar * const *) desktops, "ubuntu"))
 +    {
-+      gtk_widget_hide (GTK_WIDGET (self));
++      gtk_widget_set_visible (GTK_WIDGET (self), FALSE);
 +      return;
 +    }
 +
@@ -562,6 +547,9 @@ index 0000000..2d64912
 +                           G_CALLBACK (on_interface_settings_changed), self,
 +                           G_CONNECT_SWAPPED);
 +  g_signal_connect_object (self->interface_settings, "changed::" ICON_THEME_KEY,
++                           G_CALLBACK (on_interface_settings_changed), self,
++                           G_CONNECT_SWAPPED);
++  g_signal_connect_object (self->interface_settings, "changed::" COLOR_SCHEME_KEY,
 +                           G_CALLBACK (on_interface_settings_changed), self,
 +                           G_CONNECT_SWAPPED);
 +
@@ -637,7 +625,7 @@ index 0000000..2d64912
 +  self->color_scheme = color_scheme;
 +
 +  if (self->interface_settings)
-+    on_interface_settings_changed (self);
++    on_selected_color_changed (self);
 +}
 diff --git a/panels/ubuntu/cc-ubuntu-colors-row.css b/panels/ubuntu/cc-ubuntu-colors-row.css
 new file mode 100644
@@ -711,14 +699,14 @@ index 0000000..07cedee
 +G_END_DECLS
 diff --git a/panels/ubuntu/cc-ubuntu-colors-row.ui b/panels/ubuntu/cc-ubuntu-colors-row.ui
 new file mode 100644
-index 0000000..ddcfbd7
+index 0000000..5f760f2
 --- /dev/null
 +++ b/panels/ubuntu/cc-ubuntu-colors-row.ui
 @@ -0,0 +1,289 @@
 +<?xml version="1.0" encoding="UTF-8"?>
 +<interface>
 +  <template class="CcUbuntuColorsRow" parent="AdwActionRow">
-+    <property name="title">Color</property>
++    <property name="title" translatable="yes">Color</property>
 +    <property name="title-lines">1</property>
 +    <property name="activatable">False</property>
 +    <property name="selectable">False</property>
@@ -1005,10 +993,10 @@ index 0000000..ddcfbd7
 +  </template>
 +</interface>
 diff --git a/panels/ubuntu/meson.build b/panels/ubuntu/meson.build
-index 1fc83df..34d509f 100644
+index 529be08..d7f73e6 100644
 --- a/panels/ubuntu/meson.build
 +++ b/panels/ubuntu/meson.build
-@@ -19,6 +19,7 @@ i18n.merge_file(
+@@ -13,6 +13,7 @@ i18n.merge_file(
  )
  
  sources = files(
@@ -1016,7 +1004,7 @@ index 1fc83df..34d509f 100644
    'cc-ubuntu-panel.c',
    'cc-ubuntu-dock-dialog.c',
  )
-@@ -41,6 +42,8 @@ resource_generated_data = []
+@@ -35,6 +36,8 @@ resource_generated_data = []
  resource_data = files(
    'assets/theme-dark.svg',
    'assets/theme-light.svg',
@@ -1026,15 +1014,15 @@ index 1fc83df..34d509f 100644
    'cc-ubuntu-dock-dialog.ui',
  )
 diff --git a/po/POTFILES.in b/po/POTFILES.in
-index 92f5b7d..6968b2a 100644
+index eed19c9..593167e 100644
 --- a/po/POTFILES.in
 +++ b/po/POTFILES.in
-@@ -238,6 +238,8 @@ panels/ubuntu/cc-ubuntu-panel.c
+@@ -222,6 +222,8 @@ panels/ubuntu/cc-ubuntu-panel.c
  panels/ubuntu/cc-ubuntu-panel.ui
  panels/ubuntu/cc-ubuntu-dock-dialog.c
  panels/ubuntu/cc-ubuntu-dock-dialog.ui
 +panels/ubuntu/cc-ubuntu-colors-row.c
 +panels/ubuntu/cc-ubuntu-colors-row.ui
- panels/ubuntu/gnome-ubuntu-panel.desktop.in.in
- panels/universal-access/cc-cursor-blinking-dialog.ui
+ panels/ubuntu/gnome-ubuntu-panel.desktop.in
  panels/universal-access/cc-cursor-size-dialog.ui
+ panels/universal-access/cc-ua-hearing-page.ui

@@ -38,7 +38,7 @@ index 6658f41..12aafdb 100644
          display = GDK_DISPLAY_XDISPLAY (gdk_display_get_default ());
  	prop_scroll_methods = XInternAtom (display, "libinput Scroll Methods Available", False);
 diff --git a/panels/mouse/cc-mouse-panel.c b/panels/mouse/cc-mouse-panel.c
-index cdd28ab..6d1269a 100644
+index ae5fb69..9133b23 100644
 --- a/panels/mouse/cc-mouse-panel.c
 +++ b/panels/mouse/cc-mouse-panel.c
 @@ -64,7 +64,6 @@ struct _CcMousePanel
@@ -49,16 +49,16 @@ index cdd28ab..6d1269a 100644
  
    gboolean           left_handed;
    GtkGesture        *left_gesture;
-@@ -82,7 +81,7 @@ setup_touchpad_options (CcMousePanel *self)
+@@ -127,7 +126,7 @@ setup_touchpad_options (CcMousePanel *self)
    gboolean have_edge_scrolling;
    gboolean have_tap_to_click;
  
 -  if (self->have_synaptics || !self->have_touchpad) {
 +  if (!self->have_touchpad) {
-     gtk_widget_hide (GTK_WIDGET (self->touchpad_group));
+     adw_view_stack_page_set_visible (self->touchpad_stack_page, FALSE);
      return;
    }
-@@ -308,7 +307,10 @@ setup_dialog (CcMousePanel *self)
+@@ -370,7 +369,10 @@ setup_dialog (CcMousePanel *self)
  static void
  device_changed (CcMousePanel *self)
  {
@@ -70,7 +70,7 @@ index cdd28ab..6d1269a 100644
  
    setup_touchpad_options (self);
  
-@@ -363,11 +365,11 @@ cc_mouse_panel_init (CcMousePanel *self)
+@@ -426,11 +428,11 @@ cc_mouse_panel_init (CcMousePanel *self)
                             G_CALLBACK (device_changed), self, G_CONNECT_SWAPPED);
  
    self->have_mouse = mouse_is_present ();
