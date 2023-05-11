@@ -42,4 +42,3 @@ ubuntu/display-night-light-Don-t-leak-config-manager-proxy.patch
 
 ### PikaOS Changes
 pika/hide-ibus-keyboard.diff
-#pika/vrr.patch
