@@ -1,0 +1,1061 @@
+diff '--color=auto' -ru a/panels/display/cc-display-arrangement.c b/panels/display/cc-display-arrangement.c
+--- a/panels/display/cc-display-arrangement.c	2023-03-19 21:31:22.000000000 +0300
++++ b/panels/display/cc-display-arrangement.c	2023-05-11 18:06:11.970968247 +0300
+@@ -99,6 +99,7 @@
+ static void
+ get_scaled_geometry (CcDisplayConfig  *config,
+                      CcDisplayMonitor *output,
++                     double            max_scale,
+                      int              *x,
+                      int              *y,
+                      int              *w,
+@@ -117,6 +118,10 @@
+   if (cc_display_config_is_layout_logical (config))
+     {
+       double scale = cc_display_monitor_get_scale (output);
++
++      if (cc_display_config_layout_use_ui_scale (config))
++        scale /= ceil (max_scale);
++
+       *w = round (*w / scale);
+       *h = round (*h / scale);
+     }
+@@ -134,6 +139,7 @@
+                   gint            *max_h)
+ {
+   GList *outputs, *l;
++  gdouble max_scale;
+ 
+   g_assert (x1 && y1 && x2 && y2);
+ 
+@@ -141,6 +147,7 @@
+   *x2 = *y2 = G_MININT;
+   *max_w = 0;
+   *max_h = 0;
++  max_scale = cc_display_config_get_maximum_scaling (config);
+ 
+   outputs = cc_display_config_get_monitors (config);
+   for (l = outputs; l; l = l->next)
+@@ -151,7 +158,7 @@
+       if (!cc_display_monitor_is_useful (output))
+         continue;
+ 
+-      get_scaled_geometry (config, output, &x, &y, &w, &h);
++      get_scaled_geometry (config, output, max_scale, &x, &y, &w, &h);
+ 
+       *x1 = MIN (*x1, x);
+       *y1 = MIN (*y1, y);
+@@ -171,8 +178,10 @@
+                           gint                 *y2)
+ {
+   gdouble x, y;
++  gdouble max_scale;
+ 
+-  get_scaled_geometry (self->config, output, x1, y1, x2, y2);
++  max_scale = cc_display_config_get_maximum_scaling (self->config);
++  get_scaled_geometry (self->config, output, max_scale, x1, y1, x2, y2);
+ 
+   /* get_scaled_geometry returns the width and height */
+   *x2 = *x1 + *x2;
+@@ -325,10 +334,12 @@
+   GList *outputs, *l;
+   gint x1, y1, x2, y2;
+   gint w, h;
++  double max_scale;
+ 
+   g_assert (snap_data != NULL);
+ 
+-  get_scaled_geometry (config, snap_output, &x1, &y1, &w, &h);
++  max_scale = cc_display_config_get_maximum_scaling (config);
++  get_scaled_geometry (config, snap_output, max_scale, &x1, &y1, &w, &h);
+   x2 = x1 + w;
+   y2 = y1 + h;
+ 
+@@ -344,6 +355,7 @@
+       gint left_snap_pos;
+       gint right_snap_pos;
+       gdouble dist_x, dist_y;
++      gdouble max_scale;
+       gdouble tmp;
+ 
+       if (output == snap_output)
+@@ -352,7 +364,8 @@
+       if (!cc_display_monitor_is_useful (output))
+         continue;
+ 
+-      get_scaled_geometry (config, output, &_x1, &_y1, &_w, &_h);
++      max_scale = cc_display_config_get_maximum_scaling (config);
++      get_scaled_geometry (config, output, max_scale, &_x1, &_y1, &_w, &_h);
+       _x2 = _x1 + _w;
+       _y2 = _y1 + _h;
+ 
+@@ -955,6 +968,7 @@
+ {
+   SnapData snap_data;
+   gint x, y, w, h;
++  gdouble max_scale;
+ 
+   if (!cc_display_monitor_is_useful (output))
+     return;
+@@ -962,7 +976,8 @@
+   if (cc_display_config_count_useful_monitors (config) <= 1)
+     return;
+ 
+-  get_scaled_geometry (config, output, &x, &y, &w, &h);
++  max_scale = cc_display_config_get_maximum_scaling (config);
++  get_scaled_geometry (config, output, max_scale, &x, &y, &w, &h);
+ 
+   snap_data.snapped = SNAP_DIR_NONE;
+   snap_data.mon_x = x;
+diff '--color=auto' -ru a/panels/display/cc-display-config.c b/panels/display/cc-display-config.c
+--- a/panels/display/cc-display-config.c	2023-03-19 21:31:22.000000000 +0300
++++ b/panels/display/cc-display-config.c	2023-05-11 18:06:50.001874349 +0300
+@@ -17,6 +17,11 @@
+  *
+  */
+ 
++#define MUTTER_SCHEMA                     "org.gnome.mutter"
++#define MUTTER_EXPERIMENTAL_FEATURES_KEY  "experimental-features"
++#define MUTTER_FEATURE_FRACTIONAL_SCALING_X11 "x11-randr-fractional-scaling"
++#define MUTTER_FEATURE_FRACTIONAL_SCALING_WAYLAND "scale-monitor-framebuffer"
++
+ #include <gio/gio.h>
+ #include <math.h>
+ #include "cc-display-config.h"
+@@ -340,6 +345,26 @@
+   return CC_DISPLAY_MONITOR_GET_CLASS (self)->get_privacy (self);
+ }
+ 
++gboolean
++cc_display_monitor_supports_variable_refresh_rate (CcDisplayMonitor *self)
++{
++  return CC_DISPLAY_MONITOR_GET_CLASS (self)->supports_variable_refresh_rate (self);
++}
++
++gboolean
++cc_display_monitor_get_variable_refresh_rate (CcDisplayMonitor *self)
++{
++  return CC_DISPLAY_MONITOR_GET_CLASS (self)->get_variable_refresh_rate (self);
++}
++
++void
++cc_display_monitor_set_variable_refresh_rate (CcDisplayMonitor *self,
++                                              gboolean allowed)
++{
++  return CC_DISPLAY_MONITOR_GET_CLASS (self)->set_variable_refresh_rate (self, allowed);
++}
++
++
+ void
+ cc_display_monitor_set_mode (CcDisplayMonitor *self, CcDisplayMode *m)
+ {
+@@ -443,6 +468,10 @@
+ 
+ struct _CcDisplayConfigPrivate {
+   GList *ui_sorted_monitors;
++
++  GSettings *mutter_settings;
++  gboolean fractional_scaling;
++  gboolean fractional_scaling_pending_disable;
+ };
+ typedef struct _CcDisplayConfigPrivate CcDisplayConfigPrivate;
+ 
+@@ -450,6 +479,68 @@
+                             cc_display_config,
+                             G_TYPE_OBJECT)
+ 
++static const char *
++get_fractional_scaling_key (CcDisplayConfig *self)
++{
++  const char *renderer = cc_display_config_get_renderer (self);
++
++  if (!renderer)
++    g_return_val_if_reached (MUTTER_FEATURE_FRACTIONAL_SCALING_WAYLAND);
++
++  if (g_str_equal (renderer, "xrandr"))
++    return MUTTER_FEATURE_FRACTIONAL_SCALING_X11;
++
++  if (g_str_equal (renderer, "native") || g_str_equal (renderer, "kms"))
++    return MUTTER_FEATURE_FRACTIONAL_SCALING_WAYLAND;
++
++  g_return_val_if_reached (NULL);
++}
++
++static gboolean
++get_fractional_scaling_active (CcDisplayConfig *self)
++{
++  const char *renderer = cc_display_config_get_renderer (self);
++
++  if (renderer && g_str_equal (renderer, "xrandr") &&
++      !cc_display_config_layout_use_ui_scale (self))
++    return FALSE;
++
++  return cc_display_config_is_layout_logical (self);
++}
++
++static void
++set_fractional_scaling_active (CcDisplayConfig *self,
++                               gboolean         enable)
++{
++  CcDisplayConfigPrivate *priv = cc_display_config_get_instance_private (self);
++  g_auto(GStrv) existing_features = NULL;
++  gboolean have_fractional_scaling = FALSE;
++  g_autoptr(GVariantBuilder) builder = NULL;
++  const char *key = get_fractional_scaling_key (self);
++
++  /* Add or remove the fractional scaling feature from mutter */
++  existing_features = g_settings_get_strv (priv->mutter_settings,
++                                           MUTTER_EXPERIMENTAL_FEATURES_KEY);
++  builder = g_variant_builder_new (G_VARIANT_TYPE ("as"));
++  for (int i = 0; existing_features[i] != NULL; i++)
++    {
++      if (g_strcmp0 (existing_features[i], key) == 0)
++        {
++          if (enable)
++            have_fractional_scaling = TRUE;
++          else
++            continue;
++        }
++
++      g_variant_builder_add (builder, "s", existing_features[i]);
++    }
++  if (enable && !have_fractional_scaling && key)
++    g_variant_builder_add (builder, "s", key);
++
++  g_settings_set_value (priv->mutter_settings, MUTTER_EXPERIMENTAL_FEATURES_KEY,
++                        g_variant_builder_end (builder));
++}
++
+ static void
+ cc_display_config_init (CcDisplayConfig *self)
+ {
+@@ -487,6 +578,10 @@
+ 
+       ui_number += 1;
+     }
++
++  /* No need to connect to the setting, as we'll get notified by mutter */
++  priv->mutter_settings = g_settings_new (MUTTER_SCHEMA);
++  priv->fractional_scaling = get_fractional_scaling_active (self);
+ }
+ 
+ static void
+@@ -496,6 +591,7 @@
+   CcDisplayConfigPrivate *priv = cc_display_config_get_instance_private (self);
+ 
+   g_list_free (priv->ui_sorted_monitors);
++  g_clear_object (&priv->mutter_settings);
+ 
+   G_OBJECT_CLASS (cc_display_config_parent_class)->finalize (object);
+ }
+@@ -587,9 +683,16 @@
+ cc_display_config_equal (CcDisplayConfig *self,
+                          CcDisplayConfig *other)
+ {
++  CcDisplayConfigPrivate *spriv = cc_display_config_get_instance_private (self);
++  CcDisplayConfigPrivate *opriv = cc_display_config_get_instance_private (other);
++
+   g_return_val_if_fail (CC_IS_DISPLAY_CONFIG (self), FALSE);
+   g_return_val_if_fail (CC_IS_DISPLAY_CONFIG (other), FALSE);
+ 
++  if (spriv->fractional_scaling_pending_disable !=
++      opriv->fractional_scaling_pending_disable)
++    return FALSE;
++
+   return CC_DISPLAY_CONFIG_GET_CLASS (self)->equal (self, other);
+ }
+ 
+@@ -597,6 +700,8 @@
+ cc_display_config_apply (CcDisplayConfig *self,
+                          GError **error)
+ {
++  CcDisplayConfigPrivate *priv = cc_display_config_get_instance_private (self);
++
+   if (!CC_IS_DISPLAY_CONFIG (self))
+     {
+       g_warning ("Cannot apply invalid configuration");
+@@ -607,6 +712,12 @@
+       return FALSE;
+     }
+ 
++  if (priv->fractional_scaling_pending_disable)
++    {
++      set_fractional_scaling_active (self, FALSE);
++      priv->fractional_scaling_pending_disable = FALSE;
++    }
++
+   return CC_DISPLAY_CONFIG_GET_CLASS (self)->apply (self, error);
+ }
+ 
+@@ -640,6 +751,14 @@
+ }
+ 
+ void
++cc_display_config_set_layout_logical (CcDisplayConfig *self,
++                                      gboolean         logical)
++{
++  g_return_if_fail (CC_IS_DISPLAY_CONFIG (self));
++  return CC_DISPLAY_CONFIG_GET_CLASS (self)->set_layout_logical (self, logical);
++}
++
++void
+ cc_display_config_set_minimum_size (CcDisplayConfig *self,
+                                     int              width,
+                                     int              height)
+@@ -648,13 +767,37 @@
+   CC_DISPLAY_CONFIG_GET_CLASS (self)->set_minimum_size (self, width, height);
+ }
+ 
++gint
++cc_display_config_get_legacy_ui_scale (CcDisplayConfig *self)
++{
++  return CC_DISPLAY_CONFIG_GET_CLASS (self)->get_legacy_ui_scale (self);
++}
++
++const char *
++cc_display_config_get_renderer (CcDisplayConfig *self)
++{
++  return CC_DISPLAY_CONFIG_GET_CLASS (self)->get_renderer (self);
++}
++
++static gboolean
++scale_value_is_fractional (double scale)
++{
++  return (int) scale != scale;
++}
++
+ gboolean
+ cc_display_config_is_scaled_mode_valid (CcDisplayConfig *self,
+                                         CcDisplayMode   *mode,
+                                         double           scale)
+ {
++  CcDisplayConfigPrivate *priv = cc_display_config_get_instance_private (self);
++
+   g_return_val_if_fail (CC_IS_DISPLAY_CONFIG (self), FALSE);
+   g_return_val_if_fail (CC_IS_DISPLAY_MODE (mode), FALSE);
++
++  if (priv->fractional_scaling_pending_disable && scale_value_is_fractional (scale))
++    return FALSE;
++
+   return CC_DISPLAY_CONFIG_GET_CLASS (self)->is_scaled_mode_valid (self, mode, scale);
+ }
+ 
+@@ -663,3 +806,150 @@
+ {
+   return CC_DISPLAY_CONFIG_GET_CLASS (self)->get_panel_orientation_managed (self);
+ }
++
++gboolean
++cc_display_config_layout_use_ui_scale (CcDisplayConfig *self)
++{
++  return CC_DISPLAY_CONFIG_GET_CLASS (self)->layout_use_ui_scale (self);
++}
++
++double
++cc_display_config_get_maximum_scaling (CcDisplayConfig *self)
++{
++  GList *outputs, *l;
++  double max_scale = 1.0;
++  outputs = cc_display_config_get_monitors (self);
++
++  for (l = outputs; l; l = l->next)
++    {
++      CcDisplayMonitor *output = l->data;
++
++      if (!cc_display_monitor_is_useful (output))
++        continue;
++
++      max_scale = MAX (max_scale, cc_display_monitor_get_scale (output));
++    }
++
++  return max_scale;
++}
++
++static gboolean
++set_monitors_scaling_to_preferred_integers (CcDisplayConfig *self)
++{
++  GList *l;
++  gboolean any_changed = FALSE;
++
++  for (l = cc_display_config_get_monitors (self); l; l = l->next)
++    {
++      CcDisplayMonitor *monitor = l->data;
++      gdouble monitor_scale = cc_display_monitor_get_scale (monitor);
++
++      if (scale_value_is_fractional (monitor_scale))
++        {
++          CcDisplayMode *preferred_mode;
++          double preferred_scale;
++          double *saved_scale;
++
++          preferred_mode = cc_display_monitor_get_preferred_mode (monitor);
++          preferred_scale = cc_display_mode_get_preferred_scale (preferred_mode);
++          cc_display_monitor_set_scale (monitor, preferred_scale);
++          any_changed = TRUE;
++
++          saved_scale = g_new (double, 1);
++          *saved_scale = monitor_scale;
++          g_object_set_data_full (G_OBJECT (monitor),
++                                  "previous-fractional-scale",
++                                  saved_scale, g_free);
++        }
++      else
++        {
++          g_signal_emit_by_name (monitor, "scale");
++        }
++    }
++
++  return any_changed;
++}
++
++static void
++reset_monitors_scaling_to_selected_values (CcDisplayConfig *self)
++{
++  GList *l;
++
++  for (l = cc_display_config_get_monitors (self); l; l = l->next)
++    {
++      CcDisplayMonitor *monitor = l->data;
++      gdouble *saved_scale;
++
++      saved_scale = g_object_get_data (G_OBJECT (monitor),
++                                       "previous-fractional-scale");
++
++      if (saved_scale)
++        {
++          cc_display_monitor_set_scale (monitor, *saved_scale);
++          g_object_set_data (G_OBJECT (monitor), "previous-fractional-scale", NULL);
++        }
++      else
++        {
++          g_signal_emit_by_name (monitor, "scale");
++        }
++    }
++}
++
++void
++cc_display_config_set_fractional_scaling (CcDisplayConfig *self,
++                                          gboolean         enabled)
++{
++  CcDisplayConfigPrivate *priv = cc_display_config_get_instance_private (self);
++
++  if (priv->fractional_scaling == enabled)
++    return;
++
++  priv->fractional_scaling = enabled;
++
++  if (!cc_display_config_layout_use_ui_scale (self))
++    cc_display_config_set_layout_logical (self, enabled);
++
++  if (priv->fractional_scaling)
++    {
++      if (priv->fractional_scaling_pending_disable)
++        {
++          priv->fractional_scaling_pending_disable = FALSE;
++          reset_monitors_scaling_to_selected_values (self);
++        }
++
++      if (!get_fractional_scaling_active (self))
++        set_fractional_scaling_active (self, enabled);
++    }
++  else
++    {
++      priv->fractional_scaling_pending_disable = TRUE;
++
++      if (!set_monitors_scaling_to_preferred_integers (self))
++        {
++          gboolean disable_now = FALSE;
++
++          if (cc_display_config_layout_use_ui_scale (self))
++            {
++              disable_now =
++                G_APPROX_VALUE (cc_display_config_get_legacy_ui_scale (self),
++                                cc_display_config_get_maximum_scaling (self),
++                                DBL_EPSILON);
++            }
++
++          if (disable_now)
++            {
++              priv->fractional_scaling_pending_disable = FALSE;
++              reset_monitors_scaling_to_selected_values (self);
++              set_fractional_scaling_active (self, enabled);
++            }
++        }
++    }
++}
++
++gboolean
++cc_display_config_get_fractional_scaling (CcDisplayConfig *self)
++{
++  CcDisplayConfigPrivate *priv = cc_display_config_get_instance_private (self);
++
++  return priv->fractional_scaling;
++}
+Only in b/panels/display: cc-display-config.c.orig
+diff '--color=auto' -ru a/panels/display/cc-display-config-dbus.c b/panels/display/cc-display-config-dbus.c
+--- a/panels/display/cc-display-config-dbus.c	2023-03-19 21:31:22.000000000 +0300
++++ b/panels/display/cc-display-config-dbus.c	2023-05-11 18:06:50.001874349 +0300
+@@ -317,7 +317,6 @@
+   gobject_class->finalize = cc_display_logical_monitor_finalize;
+ }
+ 
+-
+ typedef enum _CcDisplayMonitorUnderscanning
+ {
+   UNDERSCANNING_UNSUPPORTED = 0,
+@@ -325,6 +324,13 @@
+   UNDERSCANNING_ENABLED
+ } CcDisplayMonitorUnderscanning;
+ 
++typedef enum _CcDisplayMonitorVariableRefreshRate
++{
++  VRR_UNSUPPORTED = 0,
++  VRR_DISALLOWED,
++  VRR_ALLOWED
++} CcDisplayMonitorVariableRefreshRate;
++
+ struct _CcDisplayMonitorDBus
+ {
+   CcDisplayMonitor parent_instance;
+@@ -340,6 +346,7 @@
+   int height_mm;
+   gboolean builtin;
+   CcDisplayMonitorUnderscanning underscanning;
++  CcDisplayMonitorVariableRefreshRate vrr_mode;
+   CcDisplayMonitorPrivacy privacy_screen;
+   int max_width;
+   int max_height;
+@@ -649,6 +656,37 @@
+     self->underscanning = UNDERSCANNING_DISABLED;
+ }
+ 
++static gboolean
++cc_display_monitor_dbus_supports_variable_refresh_rate (CcDisplayMonitor *pself)
++{
++  CcDisplayMonitorDBus *self = CC_DISPLAY_MONITOR_DBUS (pself);
++
++  return self->vrr_mode != VRR_UNSUPPORTED;
++}
++
++static gboolean
++cc_display_monitor_dbus_get_variable_refresh_rate (CcDisplayMonitor *pself)
++{
++  CcDisplayMonitorDBus *self = CC_DISPLAY_MONITOR_DBUS (pself);
++
++  return self->vrr_mode == VRR_ALLOWED;
++}
++
++static void
++cc_display_monitor_dbus_set_variable_refresh_rate (CcDisplayMonitor *pself,
++                                                   gboolean allowed)
++{
++  CcDisplayMonitorDBus *self = CC_DISPLAY_MONITOR_DBUS (pself);
++
++  if (self->vrr_mode == VRR_UNSUPPORTED)
++    return;
++
++  if (allowed)
++    self->vrr_mode = VRR_ALLOWED;
++  else
++    self->vrr_mode = VRR_DISALLOWED;
++}
++
+ static CcDisplayMode *
+ cc_display_monitor_dbus_get_closest_mode (CcDisplayMonitorDBus *self,
+                                           CcDisplayModeDBus *mode)
+@@ -799,6 +837,7 @@
+ cc_display_monitor_dbus_init (CcDisplayMonitorDBus *self)
+ {
+   self->underscanning = UNDERSCANNING_UNSUPPORTED;
++  self->vrr_mode = VRR_UNSUPPORTED;
+   self->max_width = G_MAXINT;
+   self->max_height = G_MAXINT;
+ }
+@@ -852,6 +891,9 @@
+   parent_class->supports_underscanning = cc_display_monitor_dbus_supports_underscanning;
+   parent_class->get_underscanning = cc_display_monitor_dbus_get_underscanning;
+   parent_class->set_underscanning = cc_display_monitor_dbus_set_underscanning;
++  parent_class->supports_variable_refresh_rate = cc_display_monitor_dbus_supports_variable_refresh_rate;
++  parent_class->get_variable_refresh_rate = cc_display_monitor_dbus_get_variable_refresh_rate;
++  parent_class->set_variable_refresh_rate = cc_display_monitor_dbus_set_variable_refresh_rate;
+   parent_class->get_privacy = cc_display_monitor_dbus_get_privacy;
+   parent_class->set_mode = cc_display_monitor_dbus_set_mode;
+   parent_class->set_compatible_clone_mode = cc_display_monitor_dbus_set_compatible_clone_mode;
+@@ -930,6 +972,15 @@
+           else
+             self->underscanning = UNDERSCANNING_DISABLED;
+         }
++      else if (g_str_equal (s, "is-vrr-allowed"))
++        {
++          gboolean vrr_allowed = FALSE;
++          g_variant_get (v, "b", &vrr_allowed);
++          if (vrr_allowed)
++            self->vrr_mode = VRR_ALLOWED;
++          else
++            self->vrr_mode = VRR_DISALLOWED;
++        }
+       else if (g_str_equal (s, "max-screen-size"))
+         {
+           g_variant_get (v, "ii", &self->max_width, &self->max_height);
+@@ -965,7 +1016,8 @@
+ typedef enum _CcDisplayLayoutMode
+ {
+   CC_DISPLAY_LAYOUT_MODE_LOGICAL = 1,
+-  CC_DISPLAY_LAYOUT_MODE_PHYSICAL = 2
++  CC_DISPLAY_LAYOUT_MODE_PHYSICAL = 2,
++  CC_DISPLAY_LAYOUT_MODE_GLOBAL_UI_LOGICAL = 3
+ } CcDisplayLayoutMode;
+ 
+ typedef enum _CcDisplayConfigMethod
+@@ -993,6 +1045,8 @@
+   gboolean supports_changing_layout_mode;
+   gboolean global_scale_required;
+   CcDisplayLayoutMode layout_mode;
++  gint legacy_ui_scale;
++  char *renderer;
+ 
+   GList *monitors;
+   CcDisplayMonitorDBus *primary;
+@@ -1042,6 +1096,10 @@
+                              "underscanning",
+                              g_variant_new_boolean (monitor->underscanning == UNDERSCANNING_ENABLED));
+ 
++      g_variant_builder_add (&props_builder, "{sv}",
++                             "allow_vrr",
++                             g_variant_new_boolean (monitor->vrr_mode == VRR_ALLOWED));
++
+       mode_dbus = CC_DISPLAY_MODE_DBUS (monitor->current_mode);
+       g_variant_builder_add (&builder, "(ss@*)",
+                              monitor->connector_name,
+@@ -1159,6 +1217,9 @@
+   g_return_val_if_fail (pself, FALSE);
+   g_return_val_if_fail (pother, FALSE);
+ 
++  if (self->layout_mode != other->layout_mode)
++    return FALSE;
++
+   cc_display_config_dbus_ensure_non_offset_coords (self);
+   cc_display_config_dbus_ensure_non_offset_coords (other);
+ 
+@@ -1176,6 +1237,9 @@
+       if (m1->underscanning != m2->underscanning)
+         return FALSE;
+ 
++      if (m1->vrr_mode != m2->vrr_mode)
++        return FALSE;
++
+       if (!cc_display_logical_monitor_equal (m1->logical_monitor, m2->logical_monitor))
+         return FALSE;
+ 
+@@ -1453,7 +1517,52 @@
+ {
+   CcDisplayConfigDBus *self = CC_DISPLAY_CONFIG_DBUS (pself);
+ 
+-  return self->layout_mode == CC_DISPLAY_LAYOUT_MODE_LOGICAL;
++  return self->layout_mode == CC_DISPLAY_LAYOUT_MODE_LOGICAL ||
++         self->layout_mode == CC_DISPLAY_LAYOUT_MODE_GLOBAL_UI_LOGICAL;
++}
++
++static void
++cc_display_config_dbus_set_layout_logical (CcDisplayConfig *pself,
++                                           gboolean         logical)
++{
++  CcDisplayConfigDBus *self = CC_DISPLAY_CONFIG_DBUS (pself);
++
++  if (!self->supports_changing_layout_mode)
++    return;
++
++  if (!logical)
++    {
++      self->layout_mode = CC_DISPLAY_LAYOUT_MODE_PHYSICAL;
++      return;
++    }
++
++  if (g_str_equal (self->renderer, "native") || g_str_equal (self->renderer, "kms"))
++    self->layout_mode = CC_DISPLAY_LAYOUT_MODE_LOGICAL;
++  else if (g_str_equal (self->renderer, "xrandr"))
++    self->layout_mode = CC_DISPLAY_LAYOUT_MODE_GLOBAL_UI_LOGICAL;
++  else
++    g_return_if_reached ();
++}
++
++static gboolean
++cc_display_config_dbus_layout_use_ui_scale (CcDisplayConfig *pself)
++{
++  CcDisplayConfigDBus *self = CC_DISPLAY_CONFIG_DBUS (pself);
++  return self->layout_mode == CC_DISPLAY_LAYOUT_MODE_GLOBAL_UI_LOGICAL;
++}
++
++static gint
++cc_display_config_dbus_get_legacy_ui_scale (CcDisplayConfig *pself)
++{
++  CcDisplayConfigDBus *self = CC_DISPLAY_CONFIG_DBUS (pself);
++  return self->legacy_ui_scale;
++}
++
++static const char *
++cc_display_config_dbus_get_renderer (CcDisplayConfig *pself)
++{
++  CcDisplayConfigDBus *self = CC_DISPLAY_CONFIG_DBUS (pself);
++  return self->renderer;
+ }
+ 
+ static gboolean
+@@ -1623,6 +1732,11 @@
+   self->global_scale_required = FALSE;
+   self->layout_mode = CC_DISPLAY_LAYOUT_MODE_LOGICAL;
+   self->logical_monitors = g_hash_table_new (NULL, NULL);
++
++  if (g_getenv ("WAYLAND_DISPLAY"))
++    self->renderer = g_strdup ("native");
++  else if (g_getenv ("DISPLAY"))
++    self->renderer = g_strdup ("xrandr");
+ }
+ 
+ static void
+@@ -1809,12 +1923,21 @@
+         {
+           g_variant_get (v, "b", &self->global_scale_required);
+         }
++      else if (g_str_equal (s, "legacy-ui-scaling-factor"))
++        {
++          g_variant_get (v, "i", &self->legacy_ui_scale);
++        }
++      else if (g_str_equal (s, "renderer"))
++        {
++          g_clear_pointer (&self->renderer, g_free);
++          g_variant_get (v, "s", &self->renderer);
++        }
+       else if (g_str_equal (s, "layout-mode"))
+         {
+           guint32 u = 0;
+           g_variant_get (v, "u", &u);
+           if (u >= CC_DISPLAY_LAYOUT_MODE_LOGICAL &&
+-              u <= CC_DISPLAY_LAYOUT_MODE_PHYSICAL)
++              u <= CC_DISPLAY_LAYOUT_MODE_GLOBAL_UI_LOGICAL)
+             self->layout_mode = u;
+         }
+     }
+@@ -1912,6 +2035,7 @@
+ 
+   g_clear_list (&self->monitors, g_object_unref);
+   g_clear_pointer (&self->logical_monitors, g_hash_table_destroy);
++  g_clear_pointer (&self->renderer, g_free);
+ 
+   G_OBJECT_CLASS (cc_display_config_dbus_parent_class)->finalize (object);
+ }
+@@ -1937,10 +2061,14 @@
+   parent_class->set_cloning = cc_display_config_dbus_set_cloning;
+   parent_class->generate_cloning_modes = cc_display_config_dbus_generate_cloning_modes;
+   parent_class->is_layout_logical = cc_display_config_dbus_is_layout_logical;
++  parent_class->set_layout_logical = cc_display_config_dbus_set_layout_logical;
+   parent_class->is_scaled_mode_valid = cc_display_config_dbus_is_scaled_mode_valid;
+   parent_class->set_minimum_size = cc_display_config_dbus_set_minimum_size;
+   parent_class->get_panel_orientation_managed =
+     cc_display_config_dbus_get_panel_orientation_managed;
++  parent_class->layout_use_ui_scale = cc_display_config_dbus_layout_use_ui_scale;
++  parent_class->get_legacy_ui_scale = cc_display_config_dbus_get_legacy_ui_scale;
++  parent_class->get_renderer = cc_display_config_dbus_get_renderer;
+ 
+   pspec = g_param_spec_variant ("state",
+                                 "GVariant",
+@@ -2001,6 +2129,26 @@
+     }
+ }
+ 
++static double
++get_maximum_scale (CcDisplayConfig *config)
++{
++  GList *outputs, *l;
++  double max_scale = 1.0;
++  outputs = cc_display_config_get_monitors (config);
++
++  for (l = outputs; l; l = l->next)
++    {
++      CcDisplayMonitor *output = l->data;
++
++      if (!cc_display_monitor_is_useful (output))
++        continue;
++
++      max_scale = MAX (max_scale, cc_display_monitor_get_scale (output));
++    }
++
++  return max_scale;
++}
++
+ static int
+ logical_monitor_width (CcDisplayLogicalMonitor *lm)
+ {
+@@ -2019,6 +2167,11 @@
+ 
+   if (monitor->config->layout_mode == CC_DISPLAY_LAYOUT_MODE_LOGICAL)
+     return round (width / lm->scale);
++  if (monitor->config->layout_mode == CC_DISPLAY_LAYOUT_MODE_GLOBAL_UI_LOGICAL)
++    {
++      double max_scale = get_maximum_scale(CC_DISPLAY_CONFIG (monitor->config));
++      return round ((width * ceil (max_scale)) / lm->scale);
++    }
+   else
+     return width;
+ }
+Only in b/panels/display: cc-display-config-dbus.c.orig
+diff '--color=auto' -ru a/panels/display/cc-display-config.h b/panels/display/cc-display-config.h
+--- a/panels/display/cc-display-config.h	2023-03-19 21:31:22.000000000 +0300
++++ b/panels/display/cc-display-config.h	2023-05-11 18:06:50.005207762 +0300
+@@ -131,6 +131,10 @@
+   gboolean          (*get_underscanning)      (CcDisplayMonitor  *self);
+   void              (*set_underscanning)      (CcDisplayMonitor  *self,
+                                                gboolean           u);
++  gboolean          (*supports_variable_refresh_rate) (CcDisplayMonitor *self);
++  gboolean          (*get_variable_refresh_rate)      (CcDisplayMonitor *self);
++  void              (*set_variable_refresh_rate)      (CcDisplayMonitor *self,                                                      gboolean          u);
++  
+   CcDisplayMonitorPrivacy (*get_privacy)      (CcDisplayMonitor  *self);
+   CcDisplayMode*    (*get_mode)               (CcDisplayMonitor  *self);
+   CcDisplayMode*    (*get_preferred_mode)     (CcDisplayMonitor  *self);
+@@ -167,6 +171,8 @@
+                                  gboolean          clone);
+   GList*   (*generate_cloning_modes) (CcDisplayConfig  *self);
+   gboolean (*is_layout_logical) (CcDisplayConfig  *self);
++  void     (*set_layout_logical) (CcDisplayConfig  *self,
++                                 gboolean          enabled);
+   void     (*set_minimum_size)  (CcDisplayConfig  *self,
+                                  int               width,
+                                  int               height);
+@@ -174,6 +180,9 @@
+                                     CcDisplayMode    *mode,
+                                     double            scale);
+   gboolean (* get_panel_orientation_managed) (CcDisplayConfig    *self);
++  gboolean (*layout_use_ui_scale) (CcDisplayConfig  *self);
++  gint     (*get_legacy_ui_scale) (CcDisplayConfig  *self);
++  const char * (*get_renderer)    (CcDisplayConfig  *self);
+ };
+ 
+ 
+@@ -194,6 +203,8 @@
+                                                              CcDisplayMode   *mode);
+ 
+ gboolean          cc_display_config_is_layout_logical       (CcDisplayConfig    *self);
++void              cc_display_config_set_layout_logical      (CcDisplayConfig    *self,
++                                                             gboolean            logical);
+ void              cc_display_config_set_minimum_size        (CcDisplayConfig    *self,
+                                                              int                 width,
+                                                              int                 height);
+@@ -202,6 +213,14 @@
+                                                              double              scale);
+ gboolean          cc_display_config_get_panel_orientation_managed
+                                                             (CcDisplayConfig    *self);
++gboolean          cc_display_config_layout_use_ui_scale     (CcDisplayConfig    *self);
++gint              cc_display_config_get_legacy_ui_scale     (CcDisplayConfig    *self);
++const char*       cc_display_config_get_renderer            (CcDisplayConfig    *self);
++
++double            cc_display_config_get_maximum_scaling     (CcDisplayConfig    *self);
++void              cc_display_config_set_fractional_scaling  (CcDisplayConfig    *self,
++                                                             gboolean            enabled);
++gboolean          cc_display_config_get_fractional_scaling  (CcDisplayConfig    *self);
+ 
+ const char*       cc_display_monitor_get_display_name       (CcDisplayMonitor   *monitor);
+ gboolean          cc_display_monitor_is_active              (CcDisplayMonitor   *monitor);
+@@ -229,6 +248,11 @@
+ 
+ CcDisplayMonitorPrivacy cc_display_monitor_get_privacy      (CcDisplayMonitor *self);
+ 
++gboolean          cc_display_monitor_supports_variable_refresh_rate (CcDisplayMonitor *monitor);
++gboolean          cc_display_monitor_get_variable_refresh_rate      (CcDisplayMonitor *monitor);
++void              cc_display_monitor_set_variable_refresh_rate      (CcDisplayMonitor *monitor,
++                                                                     gboolean          allowed);
++
+ CcDisplayMode*    cc_display_monitor_get_mode               (CcDisplayMonitor  *monitor);
+ void              cc_display_monitor_get_geometry           (CcDisplayMonitor  *monitor,
+                                                              int               *x,
+Only in b/panels/display: cc-display-config.h.orig
+diff '--color=auto' -ru a/panels/display/cc-display-settings.c b/panels/display/cc-display-settings.c
+--- a/panels/display/cc-display-settings.c	2023-03-19 21:31:22.000000000 +0300
++++ b/panels/display/cc-display-settings.c	2023-05-11 18:06:50.005207762 +0300
+@@ -23,6 +23,7 @@
+ #include <glib/gi18n.h>
+ #include <float.h>
+ #include <math.h>
++#include "cc-list-row.h"
+ #include "cc-display-settings.h"
+ #include "cc-display-config.h"
+ 
+@@ -55,8 +56,11 @@
+   GtkWidget        *scale_bbox;
+   GtkWidget        *scale_buttons_row;
+   GtkWidget        *scale_combo_row;
++  GtkWidget        *scale_fractional_row;
+   GtkWidget        *underscanning_row;
+   GtkWidget        *underscanning_switch;
++  GtkWidget        *variable_refresh_rate_row;
++  GtkWidget        *variable_refresh_rate_switch;
+ };
+ 
+ typedef struct _CcDisplaySettings CcDisplaySettings;
+@@ -77,7 +81,6 @@
+                                             GParamSpec        *pspec,
+                                             CcDisplaySettings *self);
+ 
+-
+ static gboolean
+ should_show_rotation (CcDisplaySettings *self)
+ {
+@@ -257,7 +260,9 @@
+       gtk_widget_set_visible (self->resolution_row, FALSE);
+       gtk_widget_set_visible (self->scale_combo_row, FALSE);
+       gtk_widget_set_visible (self->scale_buttons_row, FALSE);
++      gtk_widget_set_visible (self->scale_fractional_row, FALSE);
+       gtk_widget_set_visible (self->underscanning_row, FALSE);
++      gtk_widget_set_visible (self->variable_refresh_rate_row, FALSE);
+ 
+       return G_SOURCE_REMOVE;
+     }
+@@ -268,6 +273,7 @@
+   g_object_freeze_notify ((GObject*) self->resolution_row);
+   g_object_freeze_notify ((GObject*) self->scale_combo_row);
+   g_object_freeze_notify ((GObject*) self->underscanning_switch);
++  g_object_freeze_notify ((GObject*) self->variable_refresh_rate_switch);
+ 
+   cc_display_monitor_get_geometry (self->selected_output, NULL, NULL, &width, &height);
+ 
+@@ -465,12 +471,23 @@
+     }
+   cc_display_settings_refresh_layout (self, self->folded);
+ 
++  gtk_widget_set_visible (self->scale_fractional_row, TRUE);
++  g_object_set (G_OBJECT (self->scale_fractional_row), "active",
++                cc_display_config_get_fractional_scaling (self->config),
++                NULL);
++
+   gtk_widget_set_visible (self->underscanning_row,
+                           cc_display_monitor_supports_underscanning (self->selected_output) &&
+                           !cc_display_config_is_cloning (self->config));
+   gtk_switch_set_active (GTK_SWITCH (self->underscanning_switch),
+                          cc_display_monitor_get_underscanning (self->selected_output));
+ 
++  gtk_widget_set_visible (self->variable_refresh_rate_row,
++                          cc_display_monitor_supports_variable_refresh_rate (self->selected_output) &&
++                          !cc_display_config_is_cloning (self->config));
++  gtk_switch_set_active (GTK_SWITCH (self->variable_refresh_rate_switch),
++                         cc_display_monitor_get_variable_refresh_rate (self->selected_output));
++
+   self->updating = TRUE;
+   g_object_thaw_notify ((GObject*) self->enabled_switch);
+   g_object_thaw_notify ((GObject*) self->orientation_row);
+@@ -478,6 +495,7 @@
+   g_object_thaw_notify ((GObject*) self->resolution_row);
+   g_object_thaw_notify ((GObject*) self->scale_combo_row);
+   g_object_thaw_notify ((GObject*) self->underscanning_switch);
++  g_object_thaw_notify ((GObject*) self->variable_refresh_rate_switch);
+   self->updating = FALSE;
+ 
+   return G_SOURCE_REMOVE;
+@@ -639,6 +657,21 @@
+ }
+ 
+ static void
++on_variable_refresh_rate_switch_active_changed_cb (GtkWidget         *widget,
++                                                   GParamSpec        *pspec,
++                                                   CcDisplaySettings *self)
++{
++  if (self->updating)
++    return;
++
++  cc_display_monitor_set_variable_refresh_rate (self->selected_output,
++                                                gtk_switch_get_active (GTK_SWITCH (self->variable_refresh_rate_switch)));
++
++  g_signal_emit_by_name (G_OBJECT (self), "updated", self->selected_output);
++}
++
++
++static void
+ cc_display_settings_get_property (GObject    *object,
+                                   guint       prop_id,
+                                   GValue     *value,
+@@ -760,8 +793,11 @@
+   gtk_widget_class_bind_template_child (widget_class, CcDisplaySettings, scale_bbox);
+   gtk_widget_class_bind_template_child (widget_class, CcDisplaySettings, scale_buttons_row);
+   gtk_widget_class_bind_template_child (widget_class, CcDisplaySettings, scale_combo_row);
++  gtk_widget_class_bind_template_child (widget_class, CcDisplaySettings, scale_fractional_row);
+   gtk_widget_class_bind_template_child (widget_class, CcDisplaySettings, underscanning_row);
+   gtk_widget_class_bind_template_child (widget_class, CcDisplaySettings, underscanning_switch);
++  gtk_widget_class_bind_template_child (widget_class, CcDisplaySettings, variable_refresh_rate_row);
++  gtk_widget_class_bind_template_child (widget_class, CcDisplaySettings, variable_refresh_rate_switch);
+ 
+   gtk_widget_class_bind_template_callback (widget_class, on_enabled_switch_active_changed_cb);
+   gtk_widget_class_bind_template_callback (widget_class, on_orientation_selection_changed_cb);
+@@ -769,6 +805,20 @@
+   gtk_widget_class_bind_template_callback (widget_class, on_resolution_selection_changed_cb);
+   gtk_widget_class_bind_template_callback (widget_class, on_scale_selection_changed_cb);
+   gtk_widget_class_bind_template_callback (widget_class, on_underscanning_switch_active_changed_cb);
++  gtk_widget_class_bind_template_callback (widget_class, on_variable_refresh_rate_switch_active_changed_cb);
++}
++
++static void
++on_scale_fractional_toggled (CcDisplaySettings *self)
++{
++  gboolean active;
++
++  active = cc_list_row_get_active (CC_LIST_ROW (self->scale_fractional_row));
++
++  if (self->config)
++    cc_display_config_set_fractional_scaling (self->config, active);
++
++  g_signal_emit_by_name (G_OBJECT (self), "updated", self->selected_output);
+ }
+ 
+ static void
+@@ -806,6 +856,11 @@
+   adw_combo_row_set_model (ADW_COMBO_ROW (self->resolution_row),
+                            G_LIST_MODEL (self->resolution_list));
+ 
++  g_signal_connect_object (self->scale_fractional_row,
++                           "notify::active",
++                           G_CALLBACK (on_scale_fractional_toggled),
++                           self, G_CONNECT_SWAPPED);
++
+   self->updating = FALSE;
+ }
+ 
+Only in b/panels/display: cc-display-settings.c.orig
+diff '--color=auto' -ru a/panels/display/cc-display-settings.ui b/panels/display/cc-display-settings.ui
+--- a/panels/display/cc-display-settings.ui	2023-03-19 21:31:22.000000000 +0300
++++ b/panels/display/cc-display-settings.ui	2023-05-11 18:06:50.005207762 +0300
+@@ -59,6 +59,20 @@
+           </object>
+         </child>
+         <child>
++          <object class="AdwActionRow" id="variable_refresh_rate_row">
++            <property name="width_request">100</property>
++            <property name="title" translatable="yes">Variable Refresh Rate</property>
++            <child>
++              <object class="GtkSwitch" id="variable_refresh_rate_switch">
++                <property name="can_focus">False</property>
++                <property name="halign">end</property>
++                <property name="valign">center</property>
++                <signal name="notify::active" handler="on_variable_refresh_rate_switch_active_changed_cb" swapped="no"/>
++              </object>
++            </child>
++          </object>
++        </child>
++        <child>
+           <object class="AdwActionRow" id="underscanning_row">
+             <property name="width_request">100</property>
+             <property name="title" translatable="yes">Adjust for TV</property>
+@@ -95,6 +109,15 @@
+             <signal name="notify::selected-item" handler="on_scale_selection_changed_cb" swapped="no"/>
+           </object>
+         </child>
++        <child>
++          <object class="CcListRow" id="scale_fractional_row">
++            <property name="width_request">100</property>
++            <property name="can_focus">True</property>
++            <property name="title" translatable="yes" context="display setting">Fractional Scaling</property>
++            <property name="subtitle" translatable="yes" context="display setting">May increase power usage, lower speed, or reduce display sharpness.</property>
++            <property name="show-switch">True</property>
++          </object>
++        </child>
+       </object>
+     </child>
+   </template>
+Only in b/panels/display: cc-display-settings.ui.orig
