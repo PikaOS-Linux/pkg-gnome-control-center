@@ -1,20 +1,5 @@
-From f95dd8e141b32828fd9d2debe792e7e9bf5f1de9 Mon Sep 17 00:00:00 2001
-From: Dor Askayo <dor.askayo@gmail.com>
-Date: Sat, 28 Mar 2020 19:29:59 +0300
-Subject: [PATCH] display: Add a switch for variable refresh rate
-
-This allows disabling and enabling variable refresh rate on monitors
-that support it.
----
- panels/display/cc-display-config-dbus.c | 60 ++++++++++++++++++++++++-
- panels/display/cc-display-config.c      | 20 +++++++++
- panels/display/cc-display-config.h      |  9 ++++
- panels/display/cc-display-settings.c    | 29 ++++++++++++
- panels/display/cc-display-settings.ui   | 14 ++++++
- 5 files changed, 131 insertions(+), 1 deletion(-)
-
 diff --git a/panels/display/cc-display-config-dbus.c b/panels/display/cc-display-config-dbus.c
-index 83a49ade9f..91ca02da04 100644
+index 83a49ade9..91ca02da0 100644
 --- a/panels/display/cc-display-config-dbus.c
 +++ b/panels/display/cc-display-config-dbus.c
 @@ -280,7 +280,6 @@ cc_display_logical_monitor_class_init (CcDisplayLogicalMonitorClass *klass)
@@ -141,7 +126,7 @@ index 83a49ade9f..91ca02da04 100644
          return FALSE;
  
 diff --git a/panels/display/cc-display-config.c b/panels/display/cc-display-config.c
-index a78b33fc9b..c66128265e 100644
+index a78b33fc9..c66128265 100644
 --- a/panels/display/cc-display-config.c
 +++ b/panels/display/cc-display-config.c
 @@ -322,6 +322,26 @@ cc_display_monitor_set_underscanning (CcDisplayMonitor *self,
@@ -172,7 +157,7 @@ index a78b33fc9b..c66128265e 100644
  cc_display_monitor_set_mode (CcDisplayMonitor *self, CcDisplayMode *m)
  {
 diff --git a/panels/display/cc-display-config.h b/panels/display/cc-display-config.h
-index d83fa8edca..065435ca70 100644
+index d83fa8edc..065435ca7 100644
 --- a/panels/display/cc-display-config.h
 +++ b/panels/display/cc-display-config.h
 @@ -121,6 +121,10 @@ struct _CcDisplayMonitorClass
@@ -199,7 +184,7 @@ index d83fa8edca..065435ca70 100644
  void              cc_display_monitor_get_geometry           (CcDisplayMonitor  *monitor,
                                                               int               *x,
 diff --git a/panels/display/cc-display-settings.c b/panels/display/cc-display-settings.c
-index 54301b30a8..e3a562fe1e 100644
+index 54301b30a..e3a562fe1 100644
 --- a/panels/display/cc-display-settings.c
 +++ b/panels/display/cc-display-settings.c
 @@ -57,6 +57,8 @@ struct _CcDisplaySettings
@@ -288,10 +273,10 @@ index 54301b30a8..e3a562fe1e 100644
  
  static void
 diff --git a/panels/display/cc-display-settings.ui b/panels/display/cc-display-settings.ui
-index 5c18d62293..956feb20d1 100644
+index 6233629c3..2ec7f497a 100644
 --- a/panels/display/cc-display-settings.ui
 +++ b/panels/display/cc-display-settings.ui
-@@ -58,6 +58,20 @@
+@@ -55,6 +55,20 @@
              <signal name="notify::selected-item" handler="on_refresh_rate_selection_changed_cb" swapped="no"/>
            </object>
          </child>
@@ -312,6 +297,3 @@ index 5c18d62293..956feb20d1 100644
          <child>
            <object class="AdwActionRow" id="underscanning_row">
              <property name="width_request">100</property>
--- 
-GitLab
-
