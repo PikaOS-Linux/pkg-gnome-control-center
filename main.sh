@@ -1,10 +1,5 @@
 DEBIAN_FRONTEND=noninteractive
 
-# Add dependent repositories
-wget -q -O - https://ppa.pika-os.com/key.gpg | sudo apt-key add -
-add-apt-repository https://ppa.pika-os.com
-add-apt-repository ppa:pikaos/pika
-add-apt-repository ppa:kubuntu-ppa/backports
 # Clone Upstream
 git clone https://gitlab.gnome.org/GNOME/gnome-control-center -b 44.0
 cp -rvf ./debian ./gnome-control-center
@@ -12,8 +7,6 @@ cd ./gnome-control-center
 for i in ../patches/* ; do patch -Np1 -i $i; done
 
 # Get build deps
-ln -fs /usr/share/zoneinfo/America/New_York /etc/localtime
-DEBIAN_FRONTEND=noninteractive apt-get install -y tzdata
 apt-get build-dep ./ -y
 
 # Build package
