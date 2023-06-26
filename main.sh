@@ -12,7 +12,7 @@ for i in ../patches/* ; do patch -Np1 -i $i; done
 apt-get build-dep ./ -y
 
 # Build package
-LOGNAME=root dh_make --createorig -y -l -p gnome-control-center_44.0
+LOGNAME=root dh_make --createorig -y -l -p gnome-control-center_44.0 || true
 dpkg-buildpackage --no-sign
 
 # Move the debs to output
