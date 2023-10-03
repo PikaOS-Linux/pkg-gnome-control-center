@@ -24,7 +24,7 @@ given that these are per-process anyways.
  create mode 100644 panels/ubuntu/cc-ubuntu-colors-row.ui
 
 diff --git a/panels/background/cc-background-panel.c b/panels/background/cc-background-panel.c
-index 12f1e64..0c2ac02 100644
+index e90ed61..a14d687 100644
 --- a/panels/background/cc-background-panel.c
 +++ b/panels/background/cc-background-panel.c
 @@ -35,6 +35,8 @@
@@ -54,7 +54,7 @@ index 12f1e64..0c2ac02 100644
  }
  
  static void
-@@ -378,6 +384,7 @@ cc_background_panel_class_init (CcBackgroundPanelClass *klass)
+@@ -429,6 +435,7 @@ cc_background_panel_class_init (CcBackgroundPanelClass *klass)
  
    g_type_ensure (CC_TYPE_BACKGROUND_CHOOSER);
    g_type_ensure (CC_TYPE_BACKGROUND_PREVIEW);
@@ -62,7 +62,7 @@ index 12f1e64..0c2ac02 100644
  
    panel_class->get_help_uri = cc_background_panel_get_help_uri;
  
-@@ -391,6 +398,7 @@ cc_background_panel_class_init (CcBackgroundPanelClass *klass)
+@@ -442,6 +449,7 @@ cc_background_panel_class_init (CcBackgroundPanelClass *klass)
    gtk_widget_class_bind_template_child (widget_class, CcBackgroundPanel, dark_preview);
    gtk_widget_class_bind_template_child (widget_class, CcBackgroundPanel, default_toggle);
    gtk_widget_class_bind_template_child (widget_class, CcBackgroundPanel, dark_toggle);
@@ -70,30 +70,30 @@ index 12f1e64..0c2ac02 100644
  
    gtk_widget_class_bind_template_callback (widget_class, on_color_scheme_toggle_active_cb);
    gtk_widget_class_bind_template_callback (widget_class, on_chooser_background_chosen_cb);
-@@ -447,5 +455,9 @@ cc_background_panel_init (CcBackgroundPanel *panel)
+@@ -498,5 +506,9 @@ cc_background_panel_init (CcBackgroundPanel *self)
                              got_transition_proxy_cb,
-                             panel);
+                             self);
  
-+  g_signal_connect_object (panel->ubuntu_colors, "changed",
++  g_signal_connect_object (self->ubuntu_colors, "changed",
 +                           G_CALLBACK (transition_screen),
-+                           panel, G_CONNECT_SWAPPED);
++                           self, G_CONNECT_SWAPPED);
 +
-   load_custom_css (panel);
+   load_custom_css (self);
  }
 diff --git a/panels/background/cc-background-panel.ui b/panels/background/cc-background-panel.ui
-index 33a8638..89a5ef5 100644
+index 8d6b11c..a12fee3 100644
 --- a/panels/background/cc-background-panel.ui
 +++ b/panels/background/cc-background-panel.ui
-@@ -90,6 +90,10 @@
+@@ -96,6 +96,10 @@
+                   </object>
+                 </child>
+ 
++                <child>
++                  <object class="CcUbuntuColorsRow" id="ubuntu_colors" />
++                </child>
++
                </object>
              </child>
- 
-+            <child>
-+              <object class="CcUbuntuColorsRow" id="ubuntu_colors" />
-+            </child>
-+
-           </object>
-         </child>
  
 diff --git a/panels/ubuntu/cc-ubuntu-colors-row.c b/panels/ubuntu/cc-ubuntu-colors-row.c
 new file mode 100644
@@ -1014,7 +1014,7 @@ index 529be08..d7f73e6 100644
    'cc-ubuntu-dock-dialog.ui',
  )
 diff --git a/po/POTFILES.in b/po/POTFILES.in
-index eed19c9..593167e 100644
+index e7a31a6..5b7ab8c 100644
 --- a/po/POTFILES.in
 +++ b/po/POTFILES.in
 @@ -222,6 +222,8 @@ panels/ubuntu/cc-ubuntu-panel.c
