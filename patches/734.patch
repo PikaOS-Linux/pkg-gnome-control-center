@@ -1,5 +1,20 @@
+From c3df7734630046891c8689a71ab8a6a1efee68a7 Mon Sep 17 00:00:00 2001
+From: Dor Askayo <dor.askayo@gmail.com>
+Date: Sat, 28 Mar 2020 19:29:59 +0300
+Subject: [PATCH] display: Add a switch for variable refresh rate
+
+This can be used to allow or disallow variable refresh rate on
+monitors that support it.
+---
+ panels/display/cc-display-config-dbus.c | 63 ++++++++++++++++++++++++-
+ panels/display/cc-display-config.c      | 19 ++++++++
+ panels/display/cc-display-config.h      |  9 ++++
+ panels/display/cc-display-settings.c    | 29 ++++++++++++
+ panels/display/cc-display-settings.ui   | 15 ++++++
+ 5 files changed, 134 insertions(+), 1 deletion(-)
+
 diff --git a/panels/display/cc-display-config-dbus.c b/panels/display/cc-display-config-dbus.c
-index d94f5417bff07c183c7998e5ea391dd45714c898..ba6f74caf77f99a09bbf7987fdb7c4c510e08145 100644
+index d94f5417bf..ba6f74caf7 100644
 --- a/panels/display/cc-display-config-dbus.c
 +++ b/panels/display/cc-display-config-dbus.c
 @@ -317,7 +317,6 @@ cc_display_logical_monitor_class_init (CcDisplayLogicalMonitorClass *klass)
@@ -129,7 +144,7 @@ index d94f5417bff07c183c7998e5ea391dd45714c898..ba6f74caf77f99a09bbf7987fdb7c4c5
          return FALSE;
  
 diff --git a/panels/display/cc-display-config.c b/panels/display/cc-display-config.c
-index f2ccda52218e5f85cd7aaecffc5c4ed6abbd7be3..687aa85c541e131da13b93572b51098eef89a13a 100644
+index f2ccda5221..687aa85c54 100644
 --- a/panels/display/cc-display-config.c
 +++ b/panels/display/cc-display-config.c
 @@ -340,6 +340,25 @@ cc_display_monitor_get_privacy (CcDisplayMonitor *self)
@@ -159,7 +174,7 @@ index f2ccda52218e5f85cd7aaecffc5c4ed6abbd7be3..687aa85c541e131da13b93572b51098e
  cc_display_monitor_set_mode (CcDisplayMonitor *self, CcDisplayMode *m)
  {
 diff --git a/panels/display/cc-display-config.h b/panels/display/cc-display-config.h
-index ea52c2d5991206ab2f46871da03bde80d736f4f9..70aa9ebbee3fb02b119cbf0a89f01d523dbeba4a 100644
+index ea52c2d599..70aa9ebbee 100644
 --- a/panels/display/cc-display-config.h
 +++ b/panels/display/cc-display-config.h
 @@ -132,6 +132,10 @@ struct _CcDisplayMonitorClass
@@ -186,7 +201,7 @@ index ea52c2d5991206ab2f46871da03bde80d736f4f9..70aa9ebbee3fb02b119cbf0a89f01d52
  void              cc_display_monitor_get_geometry           (CcDisplayMonitor  *monitor,
                                                               int               *x,
 diff --git a/panels/display/cc-display-settings.c b/panels/display/cc-display-settings.c
-index 79de8b657aa41c33c6a00e218b2d86126497f0db..39d2c7eff5b1e34fee227234dcd87f2e7c519437 100644
+index 79de8b657a..39d2c7eff5 100644
 --- a/panels/display/cc-display-settings.c
 +++ b/panels/display/cc-display-settings.c
 @@ -57,6 +57,8 @@ struct _CcDisplaySettings
@@ -275,14 +290,13 @@ index 79de8b657aa41c33c6a00e218b2d86126497f0db..39d2c7eff5b1e34fee227234dcd87f2e
  
  static void
 diff --git a/panels/display/cc-display-settings.ui b/panels/display/cc-display-settings.ui
-index 6de2ba6ee10501c34943984f2210fa785eda06a7..f0c9fa10bce915f9c3758c347bc0908cacf3c063 100644
+index 6de2ba6ee1..f0c9fa10bc 100644
 --- a/panels/display/cc-display-settings.ui
 +++ b/panels/display/cc-display-settings.ui
-@@ -58,6 +58,21 @@
-             <signal name="notify::selected-item" handler="on_refresh_rate_selection_changed_cb" swapped="yes"/>
+@@ -59,6 +59,21 @@
            </object>
          </child>
-+        <child>
+         <child>
 +          <object class="AdwActionRow" id="variable_refresh_rate_row">
 +            <property name="width_request">100</property>
 +            <property name="title" translatable="yes">Variable Refresh Rate</property>
@@ -297,6 +311,10 @@ index 6de2ba6ee10501c34943984f2210fa785eda06a7..f0c9fa10bce915f9c3758c347bc0908c
 +            </child>
 +          </object>
 +        </child>
-         <child>
++        <child>
            <object class="AdwActionRow" id="underscanning_row">
              <property name="width_request">100</property>
+             <property name="title" translatable="yes">Adjust for TV</property>
+-- 
+GitLab
+
